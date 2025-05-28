@@ -3,8 +3,11 @@ import json
 from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from PIL import Image
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # ✅ Move here
+
 UPLOAD_FOLDER = 'customer_data'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
