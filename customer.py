@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, url_for
 from werkzeug.utils import secure_filename
 from PIL import Image
 from flask_cors import CORS
@@ -29,13 +29,15 @@ def upload_profile(customer_id):
     try:
         img = Image.open(file.stream)
         img.save(filepath, format='WEBP', quality=80)
-        print(f"[UPLOAD] Profile uploaded for {customer_id}")  # Debug line
+        print(f"[UPLOAD] Profile uploaded for {customer_id}")
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+    # Use request.host_url to return a fully qualified public URL
+    profile_url = f"{request.host_url.rstrip('/')}/profile/{get_customer_id(customer_id)}"
     return jsonify({
         'message': 'Profile uploaded successfully',
-        'url': f"/profile/{get_customer_id(customer_id)}"
+        'url': profile_url
     })
 
 @app.route('/profile/<customer_id>', methods=['GET'])
