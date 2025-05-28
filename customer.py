@@ -1,6 +1,7 @@
 import os
 import json
-from flask import Flask, request, jsonify, send_file, url_for
+import requests
+from flask import Flask, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from PIL import Image
 from flask_cors import CORS
@@ -12,6 +13,7 @@ UPLOAD_FOLDER = 'customer_data'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 DEFAULT_GUEST_ID = 'guest_profile'
+LOCAL_SYNC_ENDPOINT = 'http://localhost:5001/sync-profile-image'
 
 def get_customer_id(customer_id):
     return secure_filename(customer_id or DEFAULT_GUEST_ID)
@@ -30,10 +32,17 @@ def upload_profile(customer_id):
         img = Image.open(file.stream)
         img.save(filepath, format='WEBP', quality=80)
         print(f"[UPLOAD] Profile uploaded for {customer_id}")
+
+        # Send to local server for backup
+        try:
+            with open(filepath, 'rb') as f:
+                requests.post(LOCAL_SYNC_ENDPOINT, files={'file': f}, data={'customer_id': customer_id})
+        except Exception as sync_err:
+            print(f"[SYNC ERROR] Could not sync to local: {sync_err}")
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    # Use request.host_url to return a fully qualified public URL
     profile_url = f"{request.host_url.rstrip('/')}/profile/{get_customer_id(customer_id)}"
     return jsonify({
         'message': 'Profile uploaded successfully',
@@ -45,6 +54,19 @@ def get_profile(customer_id):
     profile_path = os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id), 'profile.webp')
     if os.path.exists(profile_path):
         return send_file(profile_path, mimetype='image/webp')
+
+    # Try pulling from local server
+    try:
+        r = requests.get(f"http://localhost:5001/profile/{customer_id}", stream=True)
+        if r.status_code == 200:
+            os.makedirs(os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id)), exist_ok=True)
+            with open(profile_path, 'wb') as f:
+                for chunk in r.iter_content(1024):
+                    f.write(chunk)
+            return send_file(profile_path, mimetype='image/webp')
+    except Exception as sync_fetch_err:
+        print(f"[SYNC FETCH ERROR] {sync_fetch_err}")
+
     return jsonify({'error': 'Profile not found'}), 404
 
 @app.route('/wishlist/<customer_id>', methods=['POST'])
