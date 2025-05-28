@@ -6,7 +6,7 @@ from PIL import Image
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # ✅ Move here
+CORS(app)
 
 UPLOAD_FOLDER = 'customer_data'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -29,10 +29,14 @@ def upload_profile(customer_id):
     try:
         img = Image.open(file.stream)
         img.save(filepath, format='WEBP', quality=80)
+        print(f"[UPLOAD] Profile uploaded for {customer_id}")  # Debug line
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    return jsonify({'message': 'Profile uploaded successfully', 'path': filepath})
+    return jsonify({
+        'message': 'Profile uploaded successfully',
+        'url': f"/profile/{get_customer_id(customer_id)}"
+    })
 
 @app.route('/profile/<customer_id>', methods=['GET'])
 def get_profile(customer_id):
