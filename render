@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: flipxdeals-backend
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: gunicorn customer:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
