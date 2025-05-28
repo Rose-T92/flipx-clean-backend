@@ -32,11 +32,12 @@ def upload_profile(customer_id):
         img = Image.open(file.stream)
         img.save(filepath, format='WEBP', quality=80)
         print(f"[UPLOAD] Profile uploaded for {customer_id}")
-
+    
         # Send to local server for backup
         try:
             with open(filepath, 'rb') as f:
                 requests.post(LOCAL_SYNC_ENDPOINT, files={'file': f}, data={'customer_id': customer_id})
+                print(f"[SYNC] Sent profile to local server for {customer_id}")
         except Exception as sync_err:
             print(f"[SYNC ERROR] Could not sync to local: {sync_err}")
 
@@ -63,6 +64,7 @@ def get_profile(customer_id):
             with open(profile_path, 'wb') as f:
                 for chunk in r.iter_content(1024):
                     f.write(chunk)
+            print(f"[SYNC FETCH] Retrieved profile from local for {customer_id}")
             return send_file(profile_path, mimetype='image/webp')
     except Exception as sync_fetch_err:
         print(f"[SYNC FETCH ERROR] {sync_fetch_err}")
