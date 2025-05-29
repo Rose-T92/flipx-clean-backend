@@ -54,20 +54,20 @@ def get_profile(customer_id):
     profile_path = os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id), 'profile.webp')
     if os.path.exists(profile_path):
         return send_file(profile_path, mimetype='image/webp')
-
-    try:
-        r = requests.get(f"http://localhost:5001/profile/{customer_id}", stream=True)
-        if r.status_code == 200:
-            os.makedirs(os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id)), exist_ok=True)
-            with open(profile_path, 'wb') as f:
-                for chunk in r.iter_content(1024):
-                    f.write(chunk)
-            print(f"[SYNC FETCH] Retrieved profile from local for {customer_id}")
-            return send_file(profile_path, mimetype='image/webp')
-    except Exception as sync_fetch_err:
-        print(f"[SYNC FETCH ERROR] {sync_fetch_err}")
-
     return jsonify({'error': 'Profile not found'}), 404
+
+
+@app.route('/fetch-from-local/<customer_id>', methods=['POST'])
+def fetch_from_local(customer_id):
+    try:
+        print(f"[FETCH REQUEST] Asking local server to send profile for {customer_id}")
+        r = requests.post(
+            'http://localhost:5001/send-profile',
+            data={'customer_id': customer_id}
+        )
+        return jsonify({'status': 'requested from local'}), r.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/all-customers', methods=['GET'])
