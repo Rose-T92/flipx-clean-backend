@@ -15,10 +15,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 DEFAULT_GUEST_ID = 'guest_profile'
 LOCAL_SYNC_ENDPOINT = 'http://localhost:5001/sync-profile-image'
 
-
 def get_customer_id(customer_id):
     return secure_filename(customer_id or DEFAULT_GUEST_ID)
-
 
 @app.route('/upload-profile/<customer_id>', methods=['POST'])
 def upload_profile(customer_id):
@@ -31,7 +29,7 @@ def upload_profile(customer_id):
     filepath = os.path.join(folder, 'profile.webp')
 
     try:
-        img = Image.open(file.stream)
+        img = Image.open(file.stream).convert("RGB")
         img.save(filepath, format='WEBP', quality=80)
         print(f"[UPLOAD] Profile uploaded for {customer_id}")
 
@@ -48,27 +46,25 @@ def upload_profile(customer_id):
     profile_url = f"{request.host_url.rstrip('/')}/profile/{get_customer_id(customer_id)}"
     return jsonify({'message': 'Profile uploaded successfully', 'url': profile_url})
 
-
 @app.route('/profile/<customer_id>', methods=['GET'])
 def get_profile(customer_id):
     profile_path = os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id), 'profile.webp')
     if os.path.exists(profile_path):
         return send_file(profile_path, mimetype='image/webp')
-    return jsonify({'error': 'Profile not found'}), 404
 
-
-@app.route('/fetch-from-local/<customer_id>', methods=['POST'])
-def fetch_from_local(customer_id):
     try:
-        print(f"[FETCH REQUEST] Asking local server to send profile for {customer_id}")
-        r = requests.post(
-            'http://localhost:5001/send-profile',
-            data={'customer_id': customer_id}
-        )
-        return jsonify({'status': 'requested from local'}), r.status_code
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        r = requests.get(f"http://localhost:5001/profile/{customer_id}", stream=True)
+        if r.status_code == 200:
+            os.makedirs(os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id)), exist_ok=True)
+            with open(profile_path, 'wb') as f:
+                for chunk in r.iter_content(1024):
+                    f.write(chunk)
+            print(f"[SYNC FETCH] Retrieved profile from local for {customer_id}")
+            return send_file(profile_path, mimetype='image/webp')
+    except Exception as sync_fetch_err:
+        print(f"[SYNC FETCH ERROR] {sync_fetch_err}")
 
+    return jsonify({'error': 'Profile not found'}), 404
 
 @app.route('/all-customers', methods=['GET'])
 def list_all_customers():
@@ -80,7 +76,6 @@ def list_all_customers():
         return jsonify(ids)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/wishlist/<customer_id>', methods=['POST'])
 def save_wishlist(customer_id):
@@ -100,7 +95,6 @@ def save_wishlist(customer_id):
 
     return jsonify({'message': 'Wishlist saved successfully'})
 
-
 @app.route('/wishlist/<customer_id>', methods=['GET'])
 def get_wishlist(customer_id):
     wishlist_path = os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id), 'wishlist.json')
@@ -108,7 +102,6 @@ def get_wishlist(customer_id):
         with open(wishlist_path, 'r') as f:
             return jsonify(json.load(f))
     return jsonify([])
-
 
 @app.route('/referrals/<customer_id>', methods=['POST'])
 def save_referral(customer_id):
@@ -128,7 +121,6 @@ def save_referral(customer_id):
 
     return jsonify({'message': 'Referral saved successfully'})
 
-
 @app.route('/referrals/<customer_id>', methods=['GET'])
 def get_referral(customer_id):
     referral_path = os.path.join(UPLOAD_FOLDER, get_customer_id(customer_id), 'referrals.json')
@@ -136,7 +128,6 @@ def get_referral(customer_id):
         with open(referral_path, 'r') as f:
             return jsonify(json.load(f))
     return jsonify([])
-
 
 if __name__ == '__main__':
     app.run(debug=True)
